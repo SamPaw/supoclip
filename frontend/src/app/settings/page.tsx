@@ -39,6 +39,8 @@ import { AlertCircle, Bot, Check, ChevronRight, Clock, CreditCard, Info, Languag
 import { cn } from "@/lib/utils";
 import { DEFAULT_SITE_URL, GITHUB_URL } from "@/lib/site";
 import { FontSelectOption, type FontOption } from "@/components/font-select-option";
+import { BrandingSettingsSection } from "@/components/settings/branding-settings";
+import { Sparkles } from "lucide-react";
 
 interface UserPreferences {
   fontFamily: string;
@@ -438,6 +440,15 @@ export default function SettingsPage() {
               </p>
             </div>
           </div>
+        </Section>
+
+        <Section
+          tour="settings-branding"
+          icon={<Sparkles className="size-4" />}
+          title="Branding & Media Assets"
+          description="Default background music and outro video applied to all generated clips in every session."
+        >
+          <BrandingSettingsSection />
         </Section>
 
         <Section icon={<Mail className="size-4" />} title={t("notifications.title")} description={t("notifications.description")}>

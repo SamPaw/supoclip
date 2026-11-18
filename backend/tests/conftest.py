@@ -3,6 +3,7 @@ import sys
 import time
 import hmac
 import hashlib
+import re
 from pathlib import Path
 
 import pytest
@@ -65,7 +66,8 @@ async def initialized_database(test_database_url):
     if not test_database_url:
         pytest.skip("DATABASE_URL or TEST_DATABASE_URL must be set for backend tests")
 
-    engine = create_async_engine(test_database_url, poolclass=NullPool)
+    async_url = re.sub(r"^postgres(ql)?:\/\/", "postgresql+asyncpg://", test_database_url)
+    engine = create_async_engine(async_url, poolclass=NullPool)
     configure_database(engine=engine)
     await init_db()
     yield engine

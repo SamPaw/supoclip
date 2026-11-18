@@ -229,8 +229,10 @@ def create_app(
     from .api.routes.stripe_cancellations import router as stripe_cancellations_router
     from .api.routes.mcp_oauth import consent_router as mcp_oauth_consent_router
     from .api.routes.mcp_oauth import internal_router as mcp_oauth_internal_router
+    from .api.routes.branding import router as branding_router
 
     app.include_router(media_router)
+    app.include_router(branding_router)
     app.include_router(feedback_router)
     app.include_router(admin_feedback_router)
     app.include_router(billing_router)

@@ -552,6 +552,28 @@ class TaskService(ClipEditingMixin):
             cache_key = self._build_cache_key(
                 url, source_type, processing_mode, download_quality
             )
+            # Load branding settings (background music & outro video)
+            # Checks task options first, then falls back to user's persistent create_settings
+            background_music = None
+            outro_video = None
+            task_options = task_row.get("workflow_options") or {}
+            if isinstance(task_options, dict):
+                background_music = task_options.get("background_music") or task_options.get("backgroundMusic")
+                outro_video = task_options.get("outro_video") or task_options.get("outroVideo")
+
+            if user_id and (not background_music or not outro_video):
+                try:
+                    from ..models import User
+                    user_res = await self.db.execute(select(User.create_settings).where(User.id == user_id))
+                    user_create_settings = user_res.scalar_one_or_none() or {}
+                    if isinstance(user_create_settings, dict):
+                        if not background_music:
+                            background_music = user_create_settings.get("backgroundMusic") or user_create_settings.get("background_music")
+                        if not outro_video:
+                            outro_video = user_create_settings.get("outroVideo") or user_create_settings.get("outro_video")
+                except Exception as exc:
+                    logger.warning(f"Could not load user create_settings for branding: {exc}")
+
             if spec.legacy:
                 analysis_cache_key = self._build_analysis_cache_key(cache_key, clip_length)
             else:
@@ -823,6 +845,8 @@ class TaskService(ClipEditingMixin):
                         max_clip_seconds=max_clip_seconds,
                         include_broll=include_broll,
                         broll_session=broll_session,
+                        background_music=background_music,
+                        outro_video=outro_video,
                     )
 
                 clip_info = await render_clip()

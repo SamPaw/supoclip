@@ -6,11 +6,11 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import {
   AlertCircle, ArrowRight, ArrowUp, Captions, CaptionsOff, Check, ChevronDown, Clapperboard, Crop, FileVideo, SlidersHorizontal,
-  Info, ListOrdered, Loader2, MessageSquareText, Timer, Paperclip, Sparkles, Target, Upload, Link2, Wand2, X,
+  Info, ListOrdered, Loader2, MessageSquareText, Timer, Paperclip, Sparkles, Target, Upload, Link2, Wand2, X, Music, Film,
 } from "lucide-react";
 import { CaptionSizeControl } from "@/components/caption-size-control";
 import { ComposerSettings } from "@/components/composer-settings";
-import { OUTPUT_FORMATS, parseCreateSettings, type CreateSettings, type LengthWorkflow, type OutputFormat } from "@/lib/create-settings";
+import { OUTPUT_FORMATS, parseCreateSettings, type CreateSettings, type LengthWorkflow, type OutputFormat, type BackgroundMusicSetting, type OutroVideoSetting } from "@/lib/create-settings";
 import { VideoSourceIcon } from "@/components/video-source-icon";
 import { availableWorkflows, useWorkflowsInfo, WorkflowPicker } from "@/components/workflow-picker";
 import { changedSettings, invalidSetting, WorkflowAdvancedSettings, type AdvancedValues } from "@/components/workflow-advanced";
@@ -174,6 +174,8 @@ export default function HomeApp() {
   const [pauseThresholdMs, setPauseThresholdMs] = useState("1200");
   const [removeFillerWords, setRemoveFillerWords] = useState(true);
   const [filteredWords, setFilteredWords] = useState("");
+  const [backgroundMusic, setBackgroundMusic] = useState<BackgroundMusicSetting | null>(null);
+  const [outroVideo, setOutroVideo] = useState<OutroVideoSetting | null>(null);
 
   // What to make. Hidden, and always plain highlights, unless the server enables workflows.
   const router = useRouter();
@@ -301,7 +303,9 @@ export default function HomeApp() {
     unlessChanged(setCutLongPauses, true, saved.cutLongPauses);
     unlessChanged(setPauseThresholdMs, "1200", saved.pauseThresholdMs === undefined ? undefined : String(saved.pauseThresholdMs));
     unlessChanged(setRemoveFillerWords, true, saved.removeFillerWords);
-    unlessChanged(setFilteredWords, "", saved.filteredWords);
+    if (saved.filteredWords !== undefined) setFilteredWords(saved.filteredWords);
+    if (saved.backgroundMusic !== undefined) setBackgroundMusic(saved.backgroundMusic);
+    if (saved.outroVideo !== undefined) setOutroVideo(saved.outroVideo);
     if (saved.lengths) setWorkflowLengths((current) => ({ ...saved.lengths, ...current }));
     if (saved.advanced) setAdvancedByWorkflow((current) => ({ ...saved.advanced, ...current }));
     setSettingsLoaded(true);
@@ -656,6 +660,8 @@ export default function HomeApp() {
       cutLongPauses,
       removeFillerWords,
       filteredWords,
+      backgroundMusic: backgroundMusic ?? undefined,
+      outroVideo: outroVideo ?? undefined,
       lengths: workflowLengths,
       advanced: Object.fromEntries(Object.entries(advancedByWorkflow).map(([id, values]) => {
         const schema = workflowsInfo?.workflows.find((entry) => entry.id === id)?.settings;
@@ -783,6 +789,8 @@ export default function HomeApp() {
         pause_threshold_ms: normalizedPauseThreshold,
         remove_filler_words: removeFillerWords,
         filtered_words: normalizedFilteredWords,
+        background_music: backgroundMusic?.enabled ? backgroundMusic : undefined,
+        outro_video: outroVideo?.enabled ? outroVideo : undefined,
       };
       // Plain highlights without instructions sends exactly the request it always has.
       const options: WorkflowOptions = {};
@@ -1312,6 +1320,61 @@ export default function HomeApp() {
                       <Switch id="include-broll" checked={includeBroll} onCheckedChange={setIncludeBroll} disabled={controlsDisabled} />
                     </div>
                   ) }] : []),
+                  {
+                    id: "branding",
+                    label: "Branding",
+                    icon: <Sparkles className="size-3.5" />,
+                    value: (backgroundMusic?.enabled || outroVideo?.enabled) ? "Active" : "None",
+                    content: (
+                      <div className="space-y-4 py-1">
+                        <div className="flex items-center justify-between gap-4">
+                          <div>
+                            <span className="text-sm font-medium flex items-center gap-1.5">
+                              <Music className="size-3.5 text-indigo-500" />
+                              Background Music
+                            </span>
+                            <p className="text-xs text-muted-foreground">
+                              {backgroundMusic ? (backgroundMusic.enabled ? `Active: ${backgroundMusic.filename}` : "Disabled") : "None configured"}
+                            </p>
+                          </div>
+                          {backgroundMusic ? (
+                            <Switch
+                              checked={backgroundMusic.enabled}
+                              onCheckedChange={(checked) => setBackgroundMusic({ ...backgroundMusic, enabled: checked })}
+                              disabled={controlsDisabled}
+                            />
+                          ) : (
+                            <Link href="/settings" className="text-xs text-brand hover:underline">
+                              Configure in Settings →
+                            </Link>
+                          )}
+                        </div>
+
+                        <div className="flex items-center justify-between gap-4">
+                          <div>
+                            <span className="text-sm font-medium flex items-center gap-1.5">
+                              <Film className="size-3.5 text-pink-500" />
+                              Outro Video (max 5s)
+                            </span>
+                            <p className="text-xs text-muted-foreground">
+                              {outroVideo ? (outroVideo.enabled ? `Active (${outroVideo.duration}s)` : "Disabled") : "None configured"}
+                            </p>
+                          </div>
+                          {outroVideo ? (
+                            <Switch
+                              checked={outroVideo.enabled}
+                              onCheckedChange={(checked) => setOutroVideo({ ...outroVideo, enabled: checked })}
+                              disabled={controlsDisabled}
+                            />
+                          ) : (
+                            <Link href="/settings" className="text-xs text-brand hover:underline">
+                              Configure in Settings →
+                            </Link>
+                          )}
+                        </div>
+                      </div>
+                    ),
+                  },
                   ...(workflowsEnabled && advancedSchema.length > 0 ? [{ id: "advanced", label: t("advanced.chip"), icon: <SlidersHorizontal />, count: advancedCount, content: (
                     <WorkflowAdvancedSettings
                       schema={advancedSchema}

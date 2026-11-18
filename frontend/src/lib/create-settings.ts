@@ -6,6 +6,22 @@ export type OutputFormat = (typeof OUTPUT_FORMATS)[number];
 export const LENGTH_WORKFLOWS = ["series", "recap", "trailer"] as const;
 export type LengthWorkflow = (typeof LENGTH_WORKFLOWS)[number];
 
+export type BackgroundMusicSetting = {
+  enabled: boolean;
+  path: string;
+  filename: string;
+  volume: number;
+  url?: string;
+};
+
+export type OutroVideoSetting = {
+  enabled: boolean;
+  path: string;
+  filename: string;
+  duration: number;
+  url?: string;
+};
+
 /** What the create screen remembers between videos. Anything about one video (topic, instructions, part count) stays out. */
 export type CreateSettings = {
   workflow?: Workflow;
@@ -19,6 +35,8 @@ export type CreateSettings = {
   filteredWords?: string;
   lengths?: Partial<Record<LengthWorkflow, ClipLength>>;
   advanced?: Partial<Record<Workflow, Record<string, WorkflowSettingValue>>>;
+  backgroundMusic?: BackgroundMusicSetting;
+  outroVideo?: OutroVideoSetting;
 };
 
 const MAX_ADVANCED_SETTINGS = 40;
@@ -61,6 +79,30 @@ export function parseCreateSettings(value: unknown): CreateSettings {
       if (Object.keys(kept).length) advanced[workflow] = kept;
     }
     if (Object.keys(advanced).length) parsed.advanced = advanced;
+  }
+  if (isRecord(value.backgroundMusic)) {
+    const bgm = value.backgroundMusic;
+    if (typeof bgm.path === "string" && bgm.path.length <= 500) {
+      parsed.backgroundMusic = {
+        enabled: typeof bgm.enabled === "boolean" ? bgm.enabled : true,
+        path: bgm.path,
+        filename: typeof bgm.filename === "string" ? bgm.filename.slice(0, 200) : "audio.mp3",
+        volume: typeof bgm.volume === "number" && bgm.volume >= 0 && bgm.volume <= 1 ? bgm.volume : 0.15,
+        url: typeof bgm.url === "string" ? bgm.url : "/api/branding/file?type=bgm",
+      };
+    }
+  }
+  if (isRecord(value.outroVideo)) {
+    const outro = value.outroVideo;
+    if (typeof outro.path === "string" && outro.path.length <= 500) {
+      parsed.outroVideo = {
+        enabled: typeof outro.enabled === "boolean" ? outro.enabled : true,
+        path: outro.path,
+        filename: typeof outro.filename === "string" ? outro.filename.slice(0, 200) : "outro.mp4",
+        duration: typeof outro.duration === "number" && outro.duration > 0 && outro.duration <= 5.1 ? outro.duration : 5.0,
+        url: typeof outro.url === "string" ? outro.url : "/api/branding/file?type=outro",
+      };
+    }
   }
   return parsed;
 }

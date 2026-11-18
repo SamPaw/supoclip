@@ -985,6 +985,8 @@ class VideoService:
         max_clip_seconds: float = 60.0,
         include_broll: bool = False,
         broll_session: Optional[BRollSession] = None,
+        background_music: Optional[Dict[str, Any]] = None,
+        outro_video: Optional[Dict[str, Any]] = None,
     ) -> Optional[Dict[str, Any]]:
         """Render a single clip in the thread pool and return clip_info dict, or None on failure.
 
@@ -1061,6 +1063,25 @@ class VideoService:
                 except Exception as e:
                     # A higher-resolution clip beats losing the clip entirely.
                     logger.warning(f"Keeping full-size clip {clip_index + 1}: {e}")
+
+            # Apply branding: background music
+            if background_music and background_music.get("enabled", True):
+                bgm_path_val = background_music.get("path")
+                if bgm_path_val:
+                    bgm_path = Path(bgm_path_val)
+                    if bgm_path.exists():
+                        from ..media.branding import apply_background_music
+                        bgm_vol = float(background_music.get("volume", 0.15))
+                        await run_in_thread(apply_background_music, clip_path, bgm_path, bgm_vol)
+
+            # Apply branding: outro video (max 5s)
+            if outro_video and outro_video.get("enabled", True):
+                outro_path_val = outro_video.get("path")
+                if outro_path_val:
+                    outro_path = Path(outro_path_val)
+                    if outro_path.exists():
+                        from ..media.branding import append_outro_video
+                        await run_in_thread(append_outro_video, clip_path, outro_path, 5.0)
 
             from ..media.ffmpeg import output_offsets_for_ranges
             save_clip_source_ranges(
