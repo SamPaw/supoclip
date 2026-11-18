@@ -426,7 +426,7 @@ def _close(actual: Optional[float], expected: Optional[float]) -> bool:
 
 
 def _check_cap(duration: Optional[float], max_duration: Optional[float]) -> None:
-    if duration and max_duration and duration > max_duration:
+    if duration and max_duration and max_duration > 0 and duration > max_duration:
         raise StreamTooLongError(
             f"Video is too long ({int(duration) // 60} min). "
             f"Maximum allowed duration is {int(max_duration) // 60} minutes."

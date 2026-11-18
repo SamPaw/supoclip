@@ -47,6 +47,11 @@ SETTING_METADATA = {
         "description": "Required for google-gla:* models and fallback YouTube metadata.",
         "input_type": "password",
     },
+    "GEMINI_API_KEY": {
+        "label": "Gemini API key",
+        "description": "Required for Gemini / Google models.",
+        "input_type": "password",
+    },
     "ANTHROPIC_API_KEY": {
         "label": "Anthropic API key",
         "description": "Required for anthropic:* models.",

@@ -215,7 +215,8 @@ services:
       - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
       - OPENROUTER_FALLBACK_MODEL=${OPENROUTER_FALLBACK_MODEL:-openai/gpt-6-luna}
       - RERANK_LLM=${RERANK_LLM:-}
-      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY:-}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - AI_EDIT_MODEL=${AI_EDIT_MODEL:-claude-sonnet-5-5}
       - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-}
@@ -419,7 +420,8 @@ services:
       - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
       - OPENROUTER_FALLBACK_MODEL=${OPENROUTER_FALLBACK_MODEL:-openai/gpt-6-luna}
       - RERANK_LLM=${RERANK_LLM:-}
-      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY:-}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - AI_EDIT_MODEL=${AI_EDIT_MODEL:-claude-sonnet-5-5}
       # Cancellation reviews (cron worker): investigate and post reports to the chat webhook
@@ -632,6 +634,8 @@ services:
   postgres:
     image: postgres:15-alpine
     container_name: supoclip-postgres
+    ports:
+      - "127.0.0.1:5432:5432"
     environment:
       POSTGRES_DB: supoclip
       POSTGRES_USER: supoclip

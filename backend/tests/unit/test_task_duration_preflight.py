@@ -232,6 +232,22 @@ async def test_clip_length_is_persisted_and_queued(monkeypatch, creation, preset
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("duration_seconds", [6528, 108.8 * 60, 20000])
+async def test_video_of_any_length_accepted_when_duration_limit_is_none_or_zero(monkeypatch, creation, duration_seconds):
+    request, service, queue, billing = creation
+    billing["max_youtube_duration_seconds"] = None
+    monkeypatch.setattr(
+        tasks,
+        "async_get_youtube_video_info",
+        AsyncMock(return_value={"duration": duration_seconds, "title": "Long Video"}),
+    )
+    result = await tasks.create_task(request, db=None)
+    assert result["task_id"] == "task-1"
+    assert service.create_task_with_source.await_args.kwargs["source_duration_seconds"] == duration_seconds
+    queue.enqueue_processing_job.assert_awaited_once()
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("value", [None, True, 30, "custom", {}])
 async def test_invalid_clip_length_rejected_before_billing_or_download(monkeypatch, creation, value):
     request, service, queue, _ = creation

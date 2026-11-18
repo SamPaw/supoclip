@@ -17,7 +17,12 @@ class Config:
         self.openrouter_api_key = self._get_runtime_setting("OPENROUTER_API_KEY")
         self.openrouter_fallback_model = self._get_optional_env("OPENROUTER_FALLBACK_MODEL") or "openai/gpt-6-luna"
         self.anthropic_api_key = self._get_runtime_setting("ANTHROPIC_API_KEY")
-        self.google_api_key = self._get_runtime_setting("GOOGLE_API_KEY")
+        self.gemini_api_key = self._get_runtime_setting("GEMINI_API_KEY")
+        self.google_api_key = (
+            self._get_runtime_setting("GOOGLE_API_KEY") or self.gemini_api_key
+        )
+        if not self.gemini_api_key and self.google_api_key:
+            self.gemini_api_key = self.google_api_key
         self.youtube_data_api_key = self._get_runtime_setting("YOUTUBE_DATA_API_KEY")
         self.ollama_base_url = self._get_runtime_setting("OLLAMA_BASE_URL")
         self.ollama_api_key = self._get_runtime_setting("OLLAMA_API_KEY")
@@ -103,14 +108,14 @@ class Config:
             os.getenv("APIFY_LONG_VIDEO_SECONDS", "1800")
         )
 
-        self.max_video_duration = int(os.getenv("MAX_VIDEO_DURATION", "5400"))
+        self.max_video_duration = int(os.getenv("MAX_VIDEO_DURATION", "0"))
         # YouTube sources can be longer on paid tiers. Uploads continue to use
-        # max_video_duration regardless of plan.
+        # max_video_duration regardless of plan. 0 means unlimited duration.
         self.pro_youtube_max_video_duration = int(
             os.getenv("PRO_YOUTUBE_MAX_VIDEO_DURATION", str(self.max_video_duration))
         )
         self.scale_youtube_max_video_duration = int(
-            os.getenv("SCALE_YOUTUBE_MAX_VIDEO_DURATION", "10800")
+            os.getenv("SCALE_YOUTUBE_MAX_VIDEO_DURATION", str(self.max_video_duration))
         )
         # 4 GB fits a full-length upload (the duration cap is 90 minutes) at a
         # normal 1080p bitrate. Larger files make transcription, storage, and
@@ -123,7 +128,7 @@ class Config:
         self.max_clips = int(os.getenv("MAX_CLIPS", "10"))
         self.clip_duration = int(os.getenv("CLIP_DURATION", "30"))  # seconds
 
-        self.temp_dir = os.getenv("TEMP_DIR", "temp")
+        self.temp_dir = os.getenv("TEMP_DIR", "/run/media/sam/Drive/clips_temp")
         self.media_storage = os.getenv("MEDIA_STORAGE", "local").strip().lower()
         if self.media_storage not in {"local", "s3"}:
             raise ValueError("MEDIA_STORAGE must be local or s3")
@@ -366,6 +371,8 @@ class Config:
         subscription_provider: str | None = None,
     ) -> int:
         """Return the YouTube duration cap granted by an active entitlement."""
+        if self.max_video_duration == 0:
+            return 0
         status = (subscription_status or "").lower()
         provider = (subscription_provider or "").lower()
         # past_due keeps the cap only while Stripe is still retrying the invoice.
@@ -405,6 +412,7 @@ class Config:
             "OPENAI_API_KEY": self.openai_api_key,
             "OPENROUTER_API_KEY": self.openrouter_api_key,
             "GOOGLE_API_KEY": self.google_api_key,
+            "GEMINI_API_KEY": self.gemini_api_key,
             "ANTHROPIC_API_KEY": self.anthropic_api_key,
             "OLLAMA_BASE_URL": self.ollama_base_url,
             "OLLAMA_API_KEY": self.ollama_api_key,
@@ -497,7 +505,7 @@ class Config:
         return "yt_dlp"
 
     def resolve_youtube_data_api_key(self) -> str | None:
-        return self.youtube_data_api_key or self.google_api_key
+        return self.youtube_data_api_key or self.google_api_key or self.gemini_api_key
 
     def resolve_ollama_base_url(self) -> str:
         return self.ollama_base_url or self._default_ollama_base_url()
@@ -513,7 +521,7 @@ class Config:
         Infer a usable default model based on whichever API key is present.
         Falls back to Google for backward compatibility.
         """
-        if self.google_api_key:
+        if self.google_api_key or self.gemini_api_key:
             return "google-gla:gemini-3-flash-preview"
         if self.openai_api_key:
             return "openai:gpt-5.2"

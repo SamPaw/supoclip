@@ -40,7 +40,8 @@ CREATE TABLE users (
     legacy_hd BOOLEAN NOT NULL DEFAULT false,
     -- Higher tier chosen in the billing portal, granted only after its invoice is paid.
     pending_plan VARCHAR(20),
-    pending_plan_invoice_id VARCHAR(255)
+    pending_plan_invoice_id VARCHAR(255),
+    stripe_account_id VARCHAR(255)
 );
 
 -- Idempotency-Key for task creation. A key names one create request for its
@@ -404,3 +405,31 @@ CREATE TRIGGER update_app_settings_updated_at BEFORE UPDATE ON app_settings FOR 
 CREATE TRIGGER update_session_updatedAt BEFORE UPDATE ON session FOR EACH ROW EXECUTE FUNCTION update_updatedAt_column();
 CREATE TRIGGER update_account_updatedAt BEFORE UPDATE ON account FOR EACH ROW EXECUTE FUNCTION update_updatedAt_column();
 CREATE TRIGGER update_verification_updatedAt BEFORE UPDATE ON verification FOR EACH ROW EXECUTE FUNCTION update_updatedAt_column();
+
+-- Stripe account migrations
+CREATE TABLE IF NOT EXISTS stripe_account_migrations (
+  id VARCHAR(255) PRIMARY KEY,
+  user_id VARCHAR(255) NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE ON UPDATE CASCADE,
+  source_account VARCHAR(255) NOT NULL,
+  source_customer VARCHAR(255) NOT NULL,
+  source_subscription VARCHAR(255) NOT NULL,
+  destination_account VARCHAR(255) NOT NULL,
+  destination_customer VARCHAR(255) NOT NULL,
+  destination_subscription VARCHAR(255),
+  destination_schedule VARCHAR(255),
+  stage VARCHAR(32) NOT NULL CHECK (stage IN ('prepared','source_stopped','destination_staged','destination_active','rollback_verified','cancelled')),
+  revision INTEGER NOT NULL DEFAULT 0,
+  paid_through TIMESTAMPTZ NOT NULL,
+  source_stopped_verified BOOLEAN NOT NULL DEFAULT false,
+  source_resumed_verified BOOLEAN NOT NULL DEFAULT false,
+  destination_disabled_verified BOOLEAN NOT NULL DEFAULT false,
+  destination_paid_invoice VARCHAR(255),
+  cancellation_requested BOOLEAN NOT NULL DEFAULT false,
+  recovery_required BOOLEAN NOT NULL DEFAULT false,
+  review_reason TEXT,
+  livemode BOOLEAN NOT NULL,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (source_account, source_customer),
+  UNIQUE (destination_account, destination_customer),
+  CHECK (source_account <> destination_account)
+);

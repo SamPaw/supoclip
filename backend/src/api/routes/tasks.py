@@ -110,7 +110,7 @@ def _duration_unavailable_error(platform: str) -> HTTPException:
     )
 
 
-async def _preflight_youtube_source(url: str, duration_limit: int) -> Dict[str, Any]:
+async def _preflight_youtube_source(url: str, duration_limit: int | None = None) -> Dict[str, Any]:
     """Check duration before creating a task or consuming a generation."""
     # wait_for cancels the awaiting task when this elapses. A yt-dlp call already
     # running inside asyncio.to_thread can finish in the background.
@@ -172,7 +172,7 @@ async def _preflight_youtube_source(url: str, duration_limit: int) -> Dict[str, 
             },
         ) from None
 
-    if duration > duration_limit:
+    if duration_limit and duration_limit > 0 and duration > duration_limit:
         raise HTTPException(
             status_code=422,
             detail={
@@ -188,7 +188,7 @@ async def _preflight_youtube_source(url: str, duration_limit: int) -> Dict[str, 
         )
     return metadata
 
-async def _preflight_stream_source(url: str, source: str, duration_limit: int) -> Dict[str, Any]:
+async def _preflight_stream_source(url: str, source: str, duration_limit: int | None = None) -> Dict[str, Any]:
     try:
         # One overall deadline: yt-dlp (proxy, direct) metadata, then the cheap
         # metadata actor only when both fail. The full-video actor never runs
@@ -206,7 +206,7 @@ async def _preflight_stream_source(url: str, source: str, duration_limit: int) -
         raise HTTPException(status_code=422, detail={"code": "VIDEO_UNAVAILABLE", "message": str(exc)}) from None
     except Exception:
         raise HTTPException(status_code=503, detail={"code": "VIDEO_METADATA_UNAVAILABLE", "message": "We couldn't fetch this video, try again later. No minutes were used."}) from None
-    if duration > duration_limit:
+    if duration_limit and duration_limit > 0 and duration > duration_limit:
         raise HTTPException(status_code=422, detail={"code": "VIDEO_TOO_LONG", "message": f"This {source.title()} video is {duration / 60:.1f} minutes long. Your plan allows videos up to {duration_limit / 60:g} minutes. Choose a shorter VOD or clip. No minutes were used.", "duration_seconds": duration, "max_duration_seconds": duration_limit})
     return metadata
 
@@ -224,7 +224,7 @@ def _stream_resolution_metadata(metadata: Dict[str, Any] | None) -> Dict[str, An
     }
 
 
-async def _preflight_upload_source(url: str, user_id: str, duration_limit: int, db=None) -> float:
+async def _preflight_upload_source(url: str, user_id: str, duration_limit: int | None = None, db=None) -> float:
     """Read an uploaded video's length so its minutes are charged up front."""
     reference = None
     if db is not None and isinstance(url, str) and url.startswith("upload://") and not url.startswith("upload://s3/"):
@@ -249,7 +249,7 @@ async def _preflight_upload_source(url: str, user_id: str, duration_limit: int, 
             },
         ) from None
 
-    if duration > duration_limit:
+    if duration_limit and duration_limit > 0 and duration > duration_limit:
         raise HTTPException(
             status_code=422,
             detail={

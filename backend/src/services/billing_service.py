@@ -196,11 +196,16 @@ class BillingService:
 
     async def get_usage_summary(self, user_id: str) -> dict[str, Any]:
         if not self.config.monetization_enabled:
+            duration_cap = (
+                self.config.max_video_duration
+                if self.config.max_video_duration > 0
+                else None
+            )
             return {
                 "monetization_enabled": False,
                 "plan": "self_host",
-                "max_youtube_duration_seconds": self.config.max_video_duration,
-                "max_upload_duration_seconds": self.config.max_video_duration,
+                "max_youtube_duration_seconds": duration_cap,
+                "max_upload_duration_seconds": duration_cap,
                 "max_upload_bytes": self.config.max_video_upload_bytes,
                 "subscription_status": "inactive",
                 "subscription_provider": None,
@@ -233,13 +238,15 @@ class BillingService:
         provider = row.get("subscription_provider")
         is_paid = grants_paid_access(plan, status, provider)
 
+        youtube_cap = self.config.max_youtube_video_duration_for_plan(
+            plan, status, provider
+        )
+        upload_cap = self.config.max_video_duration
         common = {
             "monetization_enabled": True,
             "plan": plan,
-            "max_youtube_duration_seconds": self.config.max_youtube_video_duration_for_plan(
-                plan, status, provider
-            ),
-            "max_upload_duration_seconds": self.config.max_video_duration,
+            "max_youtube_duration_seconds": youtube_cap if youtube_cap and youtube_cap > 0 else None,
+            "max_upload_duration_seconds": upload_cap if upload_cap and upload_cap > 0 else None,
             "max_upload_bytes": self.config.max_video_upload_bytes,
             "subscription_status": status,
             "subscription_provider": row.get("subscription_provider"),

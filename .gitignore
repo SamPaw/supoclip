@@ -6,6 +6,9 @@ __pycache__
 .next/
 logs/
 temp/
+backend/temp
+outputs/
+backend/outputs/
 .env
 *.m4a
 frontend/e2e/.seed.json

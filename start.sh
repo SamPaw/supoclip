@@ -39,19 +39,19 @@ FRONTEND_LOCAL_URL="http://localhost:${FRONTEND_PORT:-3001}"
 
 if [ -n "${LLM:-}" ]; then
     case "$LLM" in
-        google:*|google-gla:*|openai:*|openrouter:*|anthropic:*|ollama:*)
+        gemini:*|google:*|google-gla:*|openai:*|openrouter:*|anthropic:*|ollama:*)
             ;;
         *)
             echo -e "${YELLOW}Warning: Unsupported LLM value '$LLM'${NC}"
-            echo "Use google-gla:*, openai:*, openrouter:*, anthropic:*, or ollama:*"
+            echo "Use gemini:*, google:*, google-gla:*, openai:*, openrouter:*, anthropic:*, or ollama:*"
             echo ""
             ;;
     esac
 fi
 
-if [ -z "$ASSEMBLY_AI_API_KEY" ]; then
+if [ -z "$ASSEMBLY_AI_API_KEY" ] && [ "${TRANSCRIPTION_PROVIDER:-assemblyai}" = "assemblyai" ]; then
     echo -e "${YELLOW}Warning: ASSEMBLY_AI_API_KEY is not set in .env${NC}"
-    echo "Video transcription will not work without this key."
+    echo "Video transcription will not work without this key (or set TRANSCRIPTION_PROVIDER=whisper)."
     echo ""
 fi
 
@@ -66,13 +66,14 @@ fi
 
 if [ -z "${OPENAI_API_KEY:-}" ] && \
    [ -z "${GOOGLE_API_KEY:-}" ] && \
+   [ -z "${GEMINI_API_KEY:-}" ] && \
    [ -z "${ANTHROPIC_API_KEY:-}" ] && \
    [ -z "${OPENROUTER_API_KEY:-}" ]; then
     if [[ "${LLM:-}" == ollama:* ]]; then
         :
     else
     echo -e "${YELLOW}Warning: No AI provider API key is set in .env${NC}"
-    echo "You need at least one of: OPENAI_API_KEY, GOOGLE_API_KEY, ANTHROPIC_API_KEY, OPENROUTER_API_KEY, or LLM=ollama:<model>"
+    echo "You need at least one of: GEMINI_API_KEY, GOOGLE_API_KEY, OPENAI_API_KEY, ANTHROPIC_API_KEY, OPENROUTER_API_KEY, or LLM=ollama:<model>"
     echo ""
     fi
 fi

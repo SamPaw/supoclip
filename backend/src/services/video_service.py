@@ -1405,7 +1405,7 @@ class VideoService:
                 if video_info:
                     duration = video_info.get("duration", 0)
                     source_duration = duration or None
-                    if duration and duration > duration_limit:
+                    if duration and duration_limit and duration_limit > 0 and duration > duration_limit:
                         mins = duration_limit // 60
                         raise Exception(
                             f"Video is too long ({duration // 60} min). "
@@ -1492,7 +1492,7 @@ class VideoService:
 
             # Post-download duration guard (catches cases where preflight info was unavailable)
             file_duration = VideoService._get_file_duration(video_path)
-            if file_duration and file_duration > duration_limit:
+            if file_duration and duration_limit and duration_limit > 0 and file_duration > duration_limit:
                 mins = duration_limit // 60
                 raise Exception(
                     f"Video is too long ({int(file_duration) // 60} min). "

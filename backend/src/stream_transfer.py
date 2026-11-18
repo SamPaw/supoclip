@@ -15,7 +15,7 @@ class TransferStopped(RuntimeError):
 class TransferBudget:
     def __init__(self, limit: int):
         if limit <= 0:
-            raise ValueError("Stream downloads require a positive byte limit")
+            limit = 100_000_000_000  # 100 GB fallback for unlimited
         self.limit = limit
         self.total = 0
         self.failure = None

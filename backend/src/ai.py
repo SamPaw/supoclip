@@ -439,12 +439,15 @@ def build_transcript_system_prompt(clip_length: str = "auto") -> str:
 _transcript_agent: Optional[Agent[None, TranscriptAnalysis]] = None
 _transcript_agent_signature: Optional[tuple[str | None, ...]] = None
 
-SUPPORTED_LLM_PROVIDERS = {"google", "google-gla", "openai", "openrouter", "anthropic", "ollama"}
+SUPPORTED_LLM_PROVIDERS = {"google", "google-gla", "gemini", "openai", "openrouter", "anthropic", "ollama"}
 
 
 def _split_llm_name(model_name: str) -> tuple[str, str | None]:
+    model_name = model_name.strip()
     if ":" not in model_name:
-        return model_name.strip().lower(), None
+        if model_name.startswith("gemini-"):
+            return "gemini", model_name
+        return model_name.lower(), None
 
     provider, provider_model_name = model_name.split(":", 1)
     return provider.strip().lower(), provider_model_name.strip() or None
@@ -457,19 +460,22 @@ def _get_missing_llm_key_error(model_name: str, runtime_config: Config) -> Optio
     if provider not in SUPPORTED_LLM_PROVIDERS:
         return (
             f"Unsupported LLM provider '{provider}'. "
-            "Use google-gla:*, openai:*, openrouter:*, anthropic:*, or ollama:*."
+            "Use gemini:*, google:*, google-gla:*, openai:*, openrouter:*, anthropic:*, or ollama:*."
         )
 
     if not provider_model_name:
         return (
             "Selected LLM is missing a model name. "
-            "Use the format provider:model, for example ollama:gpt-oss:20b."
+            "Use the format provider:model, for example gemini:gemini-3-flash-preview or ollama:gpt-oss:20b."
         )
 
-    if provider in {"google", "google-gla"} and not runtime_config.google_api_key:
+    has_google_or_gemini_key = bool(
+        runtime_config.google_api_key or getattr(runtime_config, "gemini_api_key", None)
+    )
+    if provider in {"google", "google-gla", "gemini"} and not has_google_or_gemini_key:
         return (
-            "Selected LLM provider is Google, but GOOGLE_API_KEY is not set. "
-            "Set GOOGLE_API_KEY or set LLM to openai:* / anthropic:* / ollama:* with the matching API key."
+            "Selected LLM provider is Gemini/Google, but GEMINI_API_KEY or GOOGLE_API_KEY is not set. "
+            "Set GEMINI_API_KEY or GOOGLE_API_KEY or set LLM to openai:* / anthropic:* / ollama:* with the matching API key."
         )
 
     if provider == "openrouter" and not runtime_config.openrouter_api_key:
@@ -548,6 +554,9 @@ def _build_transcript_model(
                 "max_tokens": 8192,
             },
         )
+    if provider in {"gemini", "google", "google-gla"}:
+        return f"google:{provider_model_name}"
+
     if provider != "ollama":
         return model_name
 
@@ -578,6 +587,7 @@ def get_transcript_agent(clip_length: str = "auto") -> Agent[None, TranscriptAna
         runtime_config.openrouter_api_key,
         runtime_config.openrouter_fallback_model,
         runtime_config.google_api_key,
+        getattr(runtime_config, "gemini_api_key", None),
         runtime_config.anthropic_api_key,
         runtime_config.ollama_base_url,
         runtime_config.ollama_api_key,
@@ -658,6 +668,7 @@ def get_rerank_agent() -> Agent[None, CandidateRanking]:
         runtime_config.openrouter_api_key,
         runtime_config.openrouter_fallback_model,
         runtime_config.google_api_key,
+        getattr(runtime_config, "gemini_api_key", None),
         runtime_config.anthropic_api_key,
         runtime_config.ollama_base_url,
         runtime_config.ollama_api_key,
@@ -733,6 +744,7 @@ def get_broll_agent() -> Agent[None, BRollPlan]:
         runtime_config.openrouter_api_key,
         runtime_config.openrouter_fallback_model,
         runtime_config.google_api_key,
+        getattr(runtime_config, "gemini_api_key", None),
         runtime_config.anthropic_api_key,
         runtime_config.ollama_base_url,
         runtime_config.ollama_api_key,

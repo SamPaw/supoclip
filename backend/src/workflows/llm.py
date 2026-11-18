@@ -63,6 +63,7 @@ def build_agent(output_type: type[T], system_prompt: str, *, structural: bool) -
         cfg.openrouter_api_key,
         cfg.openrouter_fallback_model,
         cfg.google_api_key,
+        getattr(cfg, "gemini_api_key", None),
         cfg.anthropic_api_key,
         cfg.ollama_base_url,
         cfg.ollama_api_key,
