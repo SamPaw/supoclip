@@ -1,6 +1,7 @@
 from dotenv import load_dotenv
 import math
 import os
+from pathlib import Path
 
 from .runtime_settings import get_cached_setting, setting_prefers_admin
 
@@ -130,7 +131,17 @@ class Config:
         self.max_clips = int(os.getenv("MAX_CLIPS", "10"))
         self.clip_duration = int(os.getenv("CLIP_DURATION", "30"))  # seconds
 
-        self.temp_dir = os.getenv("TEMP_DIR", "/run/media/sam/Drive/clips_temp")
+        # Directory where temporary files, downloads, and user branding assets are saved.
+        # Defaults to environment variable TEMP_DIR if configured. If running on Sam's
+        # system with the external drive attached, uses that; otherwise falls back safely
+        # to a local "temp" directory so cloned instances work out of the box.
+        temp_dir_env = os.getenv("TEMP_DIR", "").strip()
+        if temp_dir_env:
+            self.temp_dir = temp_dir_env
+        elif Path("/run/media/sam/Drive/clips_temp").parent.exists():
+            self.temp_dir = "/run/media/sam/Drive/clips_temp"
+        else:
+            self.temp_dir = "temp"
         self.media_storage = os.getenv("MEDIA_STORAGE", "local").strip().lower()
         if self.media_storage not in {"local", "s3"}:
             raise ValueError("MEDIA_STORAGE must be local or s3")
