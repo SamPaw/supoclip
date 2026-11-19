@@ -299,6 +299,7 @@ def transcribe_with_youtube_captions(video_url: str) -> Optional[str]:
     subs_path = temp_dir / f"{video_id}.en.vtt"
 
     try:
+        from ..youtube_proxy import apply_youtube_client_options
         ydl_opts = {
             "quiet": True,
             "no_warnings": True,
@@ -309,6 +310,7 @@ def transcribe_with_youtube_captions(video_url: str) -> Optional[str]:
             "skip_download": True,
             "outtmpl": str(temp_dir / video_id),
         }
+        apply_youtube_client_options(ydl_opts)
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             ydl.download([video_url])
 

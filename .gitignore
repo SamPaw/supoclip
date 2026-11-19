@@ -28,3 +28,7 @@ docs/youtube-provider-registry*.json
 
 # Local agent checkouts
 .claude/worktrees/
+
+# YouTube cookies
+backend/cookies.txt
+cookies.txt

@@ -411,10 +411,42 @@ def base_proxy_params(task_id: Optional[str] = None, video_id: Optional[str] = N
         params["extractor_args"] = {
             "youtubepot-bgutilhttp": {"base_url": [pot_url]},
         }
-    if shutil.which("deno"):
-        # yt-dlp needs a JS runtime for YouTube's player challenge. Prefer the
-        # deno binary installed in the image; do not pin a player client.
-        params["js_runtimes"] = {"deno": {}}
+    apply_youtube_client_options(params, runtime)
+    return params
+
+
+def apply_youtube_client_options(params: dict[str, Any], config=None) -> dict[str, Any]:
+    """Attach configured cookies and JavaScript runtime to yt-dlp options."""
+    import os
+    runtime = config or get_config()
+
+    # JS runtime for YouTube player challenge
+    if "js_runtimes" not in params:
+        if shutil.which("deno"):
+            params["js_runtimes"] = {"deno": {}}
+        elif shutil.which("node"):
+            params["js_runtimes"] = {"node": {"path": shutil.which("node")}}
+
+    # Cookie configuration
+    if "cookiefile" not in params and "cookiesfrombrowser" not in params:
+        cookies_file = getattr(runtime, "youtube_cookies_file", "") or os.getenv("YOUTUBE_COOKIES_FILE", "").strip()
+        if not cookies_file:
+            candidates = [
+                Path(__file__).resolve().parent.parent / "cookies.txt",
+                Path(getattr(runtime, "temp_dir", "/tmp")) / "cookies.txt",
+            ]
+            for cand in candidates:
+                if cand.is_file() and cand.stat().st_size > 0:
+                    cookies_file = str(cand)
+                    break
+
+        if cookies_file and Path(cookies_file).is_file():
+            params["cookiefile"] = str(cookies_file)
+        else:
+            browser = getattr(runtime, "youtube_cookies_browser", "") or os.getenv("YOUTUBE_COOKIES_BROWSER", "").strip()
+            if browser:
+                params["cookiesfrombrowser"] = (browser,)
+
     return params
 
 

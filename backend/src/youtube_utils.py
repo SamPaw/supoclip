@@ -26,6 +26,7 @@ from .youtube_proxy import (
     YOUTUBE_DOWNLOAD_PROVIDER_YTDLP_PROXY,
     ByteBudget,
     DownloadBudgetExceeded,
+    apply_youtube_client_options,
     base_proxy_params,
     download_full_with_proxy,
     extract_video_info_with_proxy,
@@ -106,7 +107,7 @@ class YouTubeDownloader:
             "prefer_insecure": False,
             "age_limit": None,
         }
-
+        apply_youtube_client_options(opts)
         return opts
 
 
@@ -135,6 +136,8 @@ def _build_info_options(task_id: Optional[str] = None) -> Dict[str, Any]:
         ydl_opts.update(base_proxy_params(task_id))
         ydl_opts["skip_download"] = True
         ydl_opts["quiet"] = True
+    else:
+        apply_youtube_client_options(ydl_opts)
     return ydl_opts
 
 
