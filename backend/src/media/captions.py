@@ -38,6 +38,11 @@ from .ffmpeg import (
 from .transcription import (
     load_cached_transcript_data,
 )
+from .hinglish import (
+    devanagari_to_hinglish,
+    has_devanagari,
+    transliterate_transcript_words,
+)
 from .timeline import (
     get_absolute_words_in_range,
     get_words_for_keep_ranges,
@@ -620,6 +625,15 @@ def build_assemblyai_ass_subtitles(
     if not relevant_words and not hook_title and not point_labels:
         logger.warning("No words or hook title available for ASS subtitles")
         return False
+
+    if relevant_words:
+        transliterate_transcript_words(relevant_words)
+    if hook_title and has_devanagari(hook_title):
+        hook_title = devanagari_to_hinglish(hook_title)
+    if point_labels:
+        for label in point_labels:
+            if has_devanagari(label.get("text")):
+                label["text"] = devanagari_to_hinglish(label.get("text"))
 
     effective_font_family, template = ensure_glyph_coverage(
         effective_font_family,

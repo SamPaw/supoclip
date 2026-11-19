@@ -25,6 +25,12 @@ from .common import (
     _whisper,
     logger,
 )
+from .hinglish import (
+    devanagari_to_hinglish,
+    has_devanagari,
+    transliterate_transcript_payload,
+    transliterate_transcript_words,
+)
 from .ffmpeg import (
     run_ffmpeg_command,
     select_audio_stream_index,
@@ -202,7 +208,27 @@ def transcribe_with_whisper(
         model_name,
         whisper_language or "auto",
     )
-    return model.transcribe(str(audio_path), word_timestamps=True, language=whisper_language)
+    hinglish_prompt = (
+        "Transcribe in English script (Hinglish): ye kya ho gaya, namaste dosto, kya haal hai, kaise ho aap sab."
+    )
+    result = model.transcribe(
+        str(audio_path),
+        word_timestamps=True,
+        language=whisper_language,
+        initial_prompt=hinglish_prompt,
+    )
+    for segment in result.get("segments") or []:
+        if has_devanagari(segment.get("text")):
+            segment["text"] = devanagari_to_hinglish(segment.get("text"))
+        for w in segment.get("words") or []:
+            raw = w.get("word", w.get("text", ""))
+            if has_devanagari(raw):
+                conv = devanagari_to_hinglish(raw)
+                w["word"] = conv
+                w["text"] = conv
+    if has_devanagari(result.get("text")):
+        result["text"] = devanagari_to_hinglish(result.get("text"))
+    return result
 
 
 def _whisper_result_to_transcript_data(whisper_result: Dict[str, Any]) -> Dict[str, Any]:
@@ -217,7 +243,7 @@ def _whisper_result_to_transcript_data(whisper_result: Dict[str, Any]) -> Dict[s
     for segment in whisper_result.get("segments") or []:
         seg_words = [
             {
-                "text": w.get("word", w.get("text", "")),
+                "text": devanagari_to_hinglish(w.get("word", w.get("text", ""))),
                 "start": int(w["start"] * 1000) if isinstance(w.get("start"), float) else int(w.get("start", 0)),
                 "end": int(w["end"] * 1000) if isinstance(w.get("end"), float) else int(w.get("end", 0)),
                 "confidence": w.get("probability", w.get("confidence", 1.0)),
@@ -227,7 +253,7 @@ def _whisper_result_to_transcript_data(whisper_result: Dict[str, Any]) -> Dict[s
         ]
         utterances_data.append(
             {
-                "text": segment.get("text", ""),
+                "text": devanagari_to_hinglish(segment.get("text", "")),
                 "start": int(segment["start"] * 1000) if "start" in segment else 0,
                 "end": int(segment["end"] * 1000) if "end" in segment else 0,
                 "speaker": None,
@@ -236,11 +262,13 @@ def _whisper_result_to_transcript_data(whisper_result: Dict[str, Any]) -> Dict[s
         )
         words_data.extend(seg_words)
 
+    full_text = devanagari_to_hinglish(whisper_result.get("text", ""))
+
     return {
         "version": TRANSCRIPT_CACHE_SCHEMA_VERSION,
         "words": words_data,
         "utterances": utterances_data,
-        "text": whisper_result.get("text", ""),
+        "text": full_text,
         "language_code": whisper_result.get("language"),
     }
 
@@ -469,7 +497,7 @@ def cache_transcript_data(video_path: Path, transcript) -> None:
     if getattr(transcript, "utterances", None):
         utterances_data = [
             {
-                "text": utterance.text,
+                "text": devanagari_to_hinglish(utterance.text),
                 "start": utterance.start,
                 "end": utterance.end,
                 "speaker": getattr(utterance, "speaker", None),
@@ -490,7 +518,7 @@ def cache_transcript_data(video_path: Path, transcript) -> None:
         "version": TRANSCRIPT_CACHE_SCHEMA_VERSION,
         "words": words_data,
         "utterances": utterances_data,
-        "text": transcript.text,
+        "text": devanagari_to_hinglish(transcript.text),
         # Lets language-specific cleanup (e.g. default filler words) avoid
         # cutting ordinary words in other languages.
         "language_code": language_code if isinstance(language_code, str) else None,
@@ -515,7 +543,7 @@ def load_cached_transcript_data(video_path: Path) -> Optional[Dict]:
             if "version" not in payload:
                 payload["version"] = TRANSCRIPT_CACHE_SCHEMA_VERSION
                 payload.setdefault("utterances", [])
-            return payload
+            return transliterate_transcript_payload(payload)
     except Exception as e:
         logger.warning(f"Failed to load transcript cache: {e}")
         return None
@@ -523,15 +551,18 @@ def load_cached_transcript_data(video_path: Path) -> Optional[Dict]:
 
 def _serialize_transcript_word(word) -> Dict[str, Any]:
     if isinstance(word, dict):
+        raw = word.get("word", word.get("text", ""))
+        text = devanagari_to_hinglish(raw)
         return {
-            "text": word.get("word", word.get("text", "")),
+            "text": text,
             "start": int(word["start"] * 1000) if isinstance(word.get("start"), float) else int(word.get("start", 0)),
             "end": int(word["end"] * 1000) if isinstance(word.get("end"), float) else int(word.get("end", 0)),
             "confidence": word.get("probability", word.get("confidence", 1.0)),
             "speaker": word.get("speaker"),
         }
+    text = devanagari_to_hinglish(word.text)
     return {
-        "text": word.text,
+        "text": text,
         "start": word.start,
         "end": word.end,
         "confidence": word.confidence if hasattr(word, "confidence") else 1.0,
@@ -581,7 +612,7 @@ def _format_words_for_analysis(
             return
         start_time = format_ms_to_timestamp(current_words[0].start)
         end_time = format_ms_to_timestamp(current_words[-1].end)
-        text = _join_transcript_tokens([word.text for word in current_words])
+        text = _join_transcript_tokens([devanagari_to_hinglish(word.text) for word in current_words])
         if text:
             speaker_prefix = f"Speaker {speaker}: " if speaker else ""
             formatted_lines.append(f"[{start_time} - {end_time}] {speaker_prefix}{text}")
@@ -631,9 +662,10 @@ def format_transcript_for_analysis(transcript) -> List[str]:
         for segment in transcript.get("segments") or []:
             start_ms = int(segment.get("start", 0) * 1000)
             end_ms = int(segment.get("end", 0) * 1000)
+            seg_text = devanagari_to_hinglish(segment.get("text", "").strip())
             formatted_lines.append(
                 f"[{format_ms_to_timestamp(start_ms)} - {format_ms_to_timestamp(end_ms)}] "
-                f"{segment.get('text', '').strip()}"
+                f"{seg_text}"
             )
         return formatted_lines
 
@@ -661,8 +693,9 @@ def format_transcript_for_analysis(transcript) -> List[str]:
             end_time = format_ms_to_timestamp(utterance.end)
             speaker = getattr(utterance, "speaker", None)
             speaker_prefix = f"Speaker {speaker}: " if speaker else ""
+            u_text = devanagari_to_hinglish(utterance.text)
             formatted_lines.append(
-                f"[{start_time} - {end_time}] {speaker_prefix}{utterance.text}"
+                f"[{start_time} - {end_time}] {speaker_prefix}{u_text}"
             )
         return formatted_lines
 
