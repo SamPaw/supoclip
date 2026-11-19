@@ -55,7 +55,7 @@ from ..pool_timeout import pool_busy
 from ...workers.progress import ProgressTracker
 from ...config import get_config
 from ...youtube_utils import async_get_youtube_video_info, canonical_youtube_url, has_verified_duration
-from ...youtube_proxy import YouTubeAgeRestrictedError, YouTubeGeoRestrictedError
+from ...youtube_proxy import YouTubeAgeRestrictedError, YouTubeGeoRestrictedError, youtube_cookies_configured
 from ...stream_source import (
     PREFLIGHT_DEADLINE_SECONDS as STREAM_PREFLIGHT_DEADLINE_SECONDS,
     StreamDurationUnavailableError,
@@ -122,7 +122,7 @@ async def _preflight_youtube_source(url: str, duration_limit: int | None = None)
         )
         if metadata is None:
             raise ValueError("No metadata provider answered")
-        if metadata.get("age_restricted"):
+        if metadata.get("age_restricted") and not youtube_cookies_configured():
             raise YouTubeAgeRestrictedError()
         if not has_verified_duration(metadata):
             raise _DurationUnavailable()

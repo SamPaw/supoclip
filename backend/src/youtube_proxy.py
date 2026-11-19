@@ -415,6 +415,26 @@ def base_proxy_params(task_id: Optional[str] = None, video_id: Optional[str] = N
     return params
 
 
+def youtube_cookies_configured(config=None) -> bool:
+    """Return True if YouTube cookies (file or browser) are configured and available."""
+    import os
+    runtime = config or get_config()
+    cookies_file = getattr(runtime, "youtube_cookies_file", "") or os.getenv("YOUTUBE_COOKIES_FILE", "").strip()
+    if not cookies_file:
+        candidates = [
+            Path(__file__).resolve().parent.parent / "cookies.txt",
+            Path(getattr(runtime, "temp_dir", "/tmp")) / "cookies.txt",
+        ]
+        for cand in candidates:
+            if cand.is_file() and cand.stat().st_size > 0:
+                return True
+    elif Path(cookies_file).is_file() and Path(cookies_file).stat().st_size > 0:
+        return True
+
+    browser = getattr(runtime, "youtube_cookies_browser", "") or os.getenv("YOUTUBE_COOKIES_BROWSER", "").strip()
+    return bool(browser)
+
+
 def apply_youtube_client_options(params: dict[str, Any], config=None) -> dict[str, Any]:
     """Attach configured cookies and JavaScript runtime to yt-dlp options."""
     import os

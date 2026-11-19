@@ -35,6 +35,7 @@ from ..youtube_proxy import (
     YouTubeGeoRestrictedError,
     proxy_configured,
     public_download_error,
+    youtube_cookies_configured,
 )
 from ..youtube_source import (
     cached_full_media,
@@ -1419,7 +1420,7 @@ class VideoService:
                     video_info = None
                     logger.warning("YouTube metadata timed out; trying saved media and download providers")
                 source_duration = None
-                if video_info and video_info.get("age_restricted"):
+                if video_info and video_info.get("age_restricted") and not youtube_cookies_configured():
                     # No download provider can play these without a signed-in
                     # adult account; fail before paying for fallback attempts.
                     raise YouTubeAgeRestrictedError()
